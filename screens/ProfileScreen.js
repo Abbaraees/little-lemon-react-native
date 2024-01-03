@@ -1,12 +1,28 @@
 import * as React from 'react'
 import {View, Text, StyleSheet, TouchableOpacity, TextInput, Image, StatusBar, Pressable, ScrollView} from 'react-native'
 import {CheckBox} from 'react-native-btr'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export default function ProfileScreen() {
     const [isOrderChecked, setOrderChecked] = React.useState(false)
     const [isPasswordChecked, setPasswordChecked] = React.useState(false)
     const [isOffersChecked, setOffersChecked] = React.useState(false)
     const [isLetterChecked, setLetterChecked] = React.useState(false)
+    const [firstName, setFirstName] = React.useState('')
+    const [email, setEmail] = React.useState('')
+
+    React.useEffect(() => {
+        (async () => {
+            const firstName = await AsyncStorage.getItem('userName')
+            const email = await AsyncStorage.getItem('email')
+            if (firstName !== null) {
+                setFirstName(firstName)
+            }
+            if (email !== null) {
+                setEmail(email)
+            }
+        } )()
+    }, [])
     
     return (
         <ScrollView style={styles.container}>
@@ -29,12 +45,14 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                {/* User info input fields */}
                 <View style={styles.inputFields}>
                     <Text>First Name</Text>
                     <TextInput
-                        value='' 
+                        value={firstName} 
                         style={styles.inputField}
-                        onChangeText={() => {}} 
+                        onChangeText={setFirstName} 
                         placeholder='First Name'
                     />
                     <Text>Last Name</Text>
@@ -46,9 +64,9 @@ export default function ProfileScreen() {
                     />
                     <Text>Email</Text>
                     <TextInput
-                        value='' 
+                        value={email} 
                         style={styles.inputField}
-                        onChangeText={() => {}} 
+                        onChangeText={setEmail} 
                         placeholder='Email'
                     />
                     <Text>Phone Number</Text>
@@ -59,6 +77,8 @@ export default function ProfileScreen() {
                         placeholder='Phone Number'
                     />
                 </View>
+
+                {/* Email Notifications section */}
                 <View>
                     <Text style={styles.title}>Email Notifications</Text>
                     <Pressable style={styles.checkboxRow} onPress={(value) => setOrderChecked(!isOrderChecked)}>
@@ -78,12 +98,13 @@ export default function ProfileScreen() {
                         <Text style={styles.checkBoxTxt}>News Letter</Text>
                     </Pressable>
                 </View>
+
                 <TouchableOpacity style={styles.logoutBtn}>
                     <Text style={styles.logoutBtnTxt}>Log out</Text>
                 </TouchableOpacity>
                 <View style={styles.bottomBtns}>
                     <TouchableOpacity>
-                        <Text style={[styles.btn, {backgroundColor: 'white', borderColor: '#495E57', borderWidth: 1, borderRadius: 5}]}>Discard changes</Text>
+                        <Text style={[styles.btn, {backgroundColor: 'white', color: '#495E57', borderColor: '#495E57', borderWidth: 1, borderRadius: 5, fontWeight: 'bold'}]}>Discard changes</Text>
                     </TouchableOpacity>
                     <TouchableOpacity>
                         <Text style={[styles.btn, {backgroundColor: '#495E57', borderRadius: 5, color: 'white', fontWeight: 'bold'}]}>Save changes</Text>

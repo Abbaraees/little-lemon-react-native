@@ -1,50 +1,84 @@
-import * as React from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { 
     View, Text, StyleSheet, StatusBar, Pressable, Image, 
-    ActivityIndicator, FlatList, TextInput, KeyboardAvoidingView
+    ActivityIndicator, FlatList, TextInput, KeyboardAvoidingView,
+    Alert, TouchableOpacity
 } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import debounce from 'lodash.debounce';
+import { createTable, saveMenuItems, getMenuItems, filterByQueryAndCategories } from './database'
+import MenuItem from '../components/MenuItem'
+import Filters from '../components/Filters'
+import { useUpdateEffect } from '../utils'
 
+
+const categories = ['Starters', 'Mains', 'Desserts', 'Drinks'];
 
 export default function HomeScreen({navigation}) {
-    const [menuItems, setMenuItems] = React.useState()
-    const renderItem = ({item}) => {
-        // const [isLoading, setIsloading] = React.useState(true)
+    const [menuItems, setMenuItems] = useState()
+    const [query, setQuery] = useState('')
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterSelections, setFilterSelections] = useState(
+    categories.map(() => false)
+  );
+    const renderItem = ({item}) => <MenuItem item={item} />
 
-
-        return <View style={{
-            flexDirection: 'row',
-            width: '100%', 
-            height: 150,
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            borderBottomWidth: 1,
-            borderColor: '#aaa',
-            paddingBottom: 5
-            }}>
-            <View style={{width: '70%'}}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemDescription}>{item.description}</Text>
-                <Text style={styles.price}>${item.price}</Text>
-            </View>
-            <Image 
-                source={{uri: `https://github.com/Meta-Mobile-Developer-PC/Working-With-Data-API/blob/main/images/${item.image}?raw=true`}} 
-                style={{width: 100, height: 120}} 
-                />
-        </View>
-    }
-
-    React.useEffect(() => {
-        fetch('https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json')
-            .then((response) => response.json())
-            .then(json => {
-                setMenuItems(json.menu)
-                console.log(json.menu)
-            })
-            .catch(error => {
-                setMenuItems(null)
-            })
+    useEffect(() => {
+        (async () => {
+            try {
+                await createTable()
+                const menuItems = await getMenuItems()
+                if (!menuItems.length) {
+                    const response = await fetch('https://raw.githubusercontent.com/Meta-Mobile-Developer-PC/Working-With-Data-API/main/capstone.json')
+                    const json = await response.json()
+                    const menuItems = json.menu
+                    saveMenuItems(menuItems)
+                }
+                setMenuItems(menuItems)
+            } catch(error) {
+                Alert.alert(e.message);
+            }
+        })()
     }, [])
+
+
+
+  useUpdateEffect(() => {
+    (async () => {
+      const activeCategories = categories.filter((s, i) => {
+        // If all filters are deselected, all categories are active
+        if (filterSelections.every((item) => item === false)) {
+          return true;
+        }
+        return filterSelections[i];
+      });
+      try {
+        const menuItems = await filterByQueryAndCategories(
+          query,
+          activeCategories
+        );
+        setMenuItems(menuItems);
+      } catch (e) {
+        Alert.alert(e.message);
+      }
+    })();
+  }, [filterSelections, query]);
+
+  const lookup = useCallback((q) => {
+    setQuery(q);
+  }, []);
+
+//   const debouncedLookup = useMemo(() => debounce(lookup, 500), [lookup]);
+
+  const handleSearchChange = (text) => {
+    setSearchTerm(text);
+  };
+
+  const handleFiltersChange = async (index) => {
+    const arrayCopy = [...filterSelections];
+    arrayCopy[index] = !filterSelections[index];
+    setFilterSelections(arrayCopy);
+  };
+
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
             <View style={styles.header}>
@@ -76,8 +110,8 @@ export default function HomeScreen({navigation}) {
                     <Image source={require('../assets/HeroImage.png')} style={styles.heroImg} />
                 </View>
                 <TextInput 
-                    value=''
-                    onChangeText={() => {}}
+                    value={searchTerm}
+                    onChangeText={handleSearchChange}
                     placeholder="Enter a Search Term"
                     style={styles.searchField}
                 />
@@ -85,22 +119,29 @@ export default function HomeScreen({navigation}) {
 
             <View style={styles.body}>
                 <Text style={styles.order}>ORDER FOR DELIVERY!</Text>
-                <View style={styles.categories}>
-                    <Text style={styles.category}>Starters</Text>
-                    <Text style={styles.category}>Mains</Text>
-                    <Text style={styles.category}>Desserts</Text>
-                    <Text style={styles.category}>Drinks</Text>
-                </View>
+                {/* <View style={styles.categories}>
+                    <TouchableOpacity>
+                        <Text style={styles.category}>Starters</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity>
+                        <Text style={styles.category}>Mains</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity>
+                        <Text style={styles.category}>Desserts</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity>
+                        <Text style={styles.category}>Drinks</Text>
+                    </TouchableOpacity>
+                </View> */}
                 {menuItems === undefined ? 
                 <>
                     <ActivityIndicator size={'large'} />
                 </> 
                 : menuItems === null ?
-                <Text>Failed to load menu items</Text>
+                    <Text>Failed to load menu items</Text>
                 :
                 <>
-                <FlatList data={menuItems} renderItem={renderItem} style={{height: 180}}/>
-                {/* <Text>FOund</Text> */}
+                    <FlatList data={menuItems} renderItem={renderItem} style={{height: 180}}/>
                 </>
                 }
             </View>
@@ -189,14 +230,5 @@ const styles = StyleSheet.create({
         color: '#333333',
         borderRadius: 10,
         fontWeight: 'bold'
-    },
-    itemName: {
-        fontWeight: 'bold',
-        marginBottom: 5,
-        marginTop: 5
-    },
-    itemDescription: {
-        color: '#555555',
-        marginBottom: 5
-    }
+    }, 
 })
